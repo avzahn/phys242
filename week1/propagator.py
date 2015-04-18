@@ -6,6 +6,7 @@ time and distance step
 
 import numpy as np
 from copy import copy
+import h5py
 
 class wavefunction(object):
 
@@ -131,16 +132,45 @@ class wavefunction(object):
 
 		k = np.transpose(self.propagator)
 
-
-
 		for i in range(0,len(self.arr)-1):
 
 			self.arr[i+1] = k.dot(self.arr[i])
 
+	def run_renormalize(self):
+
+		k = np.transpose(self.propagator)
+		
+		for i in range(0,len(self.arr)-1):
+
+			self.arr[i+1] = k.dot(self.arr[i])
+			self.arr[i+1] *= (1/norm(self.arr[i+1],self.dx))
 
 
 	def set_initial_state(self, psi0):
 		self.arr[0] = psi0
+
+	def save(self,run_name,fname):
+
+		with h5py.File(fname,'a') as f:
+			grp = f.create_group(run_name)
+			re = grp.create_dataset("re", data = np.real(self.arr))
+			im = grp.create_dataset("im", data = np.imag(self.arr))
+			grp.attrs['dx'] = self.dx
+			grp.attrs['dt'] = self.dt
+			grp.attrs['xi'] = self.xi
+			grp.attrs['xf'] = self.xf
+			grp.attrs['ti'] = self.ti
+			grp.attrs['tf'] = self.tf
+
+
+	def gaussian(self,a,mu,p = 0):
+		i = np.complex(0,1)
+		phase = np.exp(i*p*np.pi*self.x)
+		g = np.power(a/np.pi,.25)*np.exp( -(.5*a)*(self.x - mu)**2 )
+		return phase*g
+
+def norm(v,dx):
+	return dx*np.dot(v,np.conj(v))
 
 
 
