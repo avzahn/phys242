@@ -5,20 +5,29 @@ time and distance step
 """
 
 import numpy as np
-from copy import copy
+from numpy import conj, transpose, real
 import h5py
 
-class wavefunction(object):
+i = np.complex(0,1)
 
+def norm(v,dx):
+	return dx*np.dot(v,np.conj(v))
 
-	def __init__(self, xi, ti, m = 1, h = 1, 
+class simulation(object):
+	"""
+	Specific lagrangians are implemented by subclassing
+	this and then implementing a propagator() method 
+	which must assign the simulation.k matrix
+	"""
+
+	def __init__(self, xi, ti, m = 1, hbar = 1, 
 					 xf = None, nx = None, dx = None,
 					 tf = None, nt = None, dt = None,
 					 dtype = np.complex128):
 
 		
 		self.m  = m
-		self.h = h # actually hbar
+		self.hbar = hbar 
 		self.dtype = dtype
 
 		self.xi = xi
@@ -95,42 +104,11 @@ class wavefunction(object):
 
 		self.arr = np.zeros(shape = (nt,nx), dtype = self.dtype)
 		self.x = np.linspace(self.xi,self.xf,nx, dtype = self.dtype)
-
-	def harmonic_propagator(self):
-		"""
-		generate infinitesimal the propagator for the harmonic
-		oscillator potential with omega = 1
-
-
-		This wouldn't be too hard to parallelize in native python,
-		but otherwise the usual tricks for speeding up numerical
-		python don't really work well with this function. It is
-		however a very good candidate for cython.
-		"""
-		h, m = self.h, self.m
-		dt,dx = self.dt,self.dx
-		nx,nt = self.nx, self.nt
-		i = np.complex(0,1)
-		A = np.sqrt(i*2*np.pi*h*dt/m)
-
-		k = np.zeros(shape = (nx,nx), dtype = self.dtype )
-
-		x = self.x
-
-		_h = 1./h
-		_A = 1./A
-		dx_A = dx*_A
-		_dt = 1./dt
-		for ii,row in enumerate(x):
-			for jj,col in enumerate(copy(x)):
-				s = (i*_h)*( .5*m*_dt*(x[jj]-x[ii])**2 - .5*dt*(.5*(x[jj]+x[ii]))**2 )
-				k[ii,jj] = dx_A * np.exp(s)
-
-		self.propagator = k
+		self.t = np.linspace(self.ti,self.tf,nt, dtype = self.dtype)
 
 	def run(self):
 
-		k = np.transpose(self.propagator)
+		k = np.transpose(self.k)
 
 		for i in range(0,len(self.arr)-1):
 
@@ -138,12 +116,14 @@ class wavefunction(object):
 
 	def run_renormalize(self):
 
-		k = np.transpose(self.propagator)
+		k = np.transpose(self.k)
+
+		arr = self.arr
 		
 		for i in range(0,len(self.arr)-1):
 
-			self.arr[i+1] = k.dot(self.arr[i])
-			self.arr[i+1] *= (1/norm(self.arr[i+1],self.dx))
+			arr[i+1] = k.dot(self.arr[i])
+			arr[i+1] *= (1./norm(self.arr[i+1],self.dx))
 
 
 	def set_initial_state(self, psi0):
@@ -162,22 +142,140 @@ class wavefunction(object):
 			grp.attrs['ti'] = self.ti
 			grp.attrs['tf'] = self.tf
 
+	def pmf(self):
+
+		return self.dx * np.abs(self.arr)**2
 
 	def gaussian(self,a,mu,p = 0):
+		"""
+		A normalized position representation of a gaussian state centered
+		at mu in position space and p in momentum space
+		"""
 		i = np.complex(0,1)
 		phase = np.exp(i*p*np.pi*self.x)
 		g = np.power(a/np.pi,.25)*np.exp( -(.5*a)*(self.x - mu)**2 )
 		return phase*g
 
-def norm(v,dx):
-	return dx*np.dot(v,np.conj(v))
+	def EX(self):
+
+		T = range(int(self.nt))
+		arr = self.arr
+		x = self.x
+		EX = np.zeros((self.nt,), dtype = self.dtype)
+
+		for t in T:
+			EX[t] = conj(arr[t]).dot(x * arr[t])
+
+		# any residual imaginary component is
+		# a numerical error that will just
+		# cause matplotlib to complain
+		return real(EX) * self.dx
+
+	def EP(self):
+
+		T = range(int(self.nt))
+		arr = self.arr
+
+		EP = np.zeros((self.nt,), dtype = self.dtype)
+
+		for t in T:
+			EP[t] = conj(arr[t][:-1]).dot(np.diff(arr[t]))
+
+		return real( (-i * self.hbar / (self.dt)) * EP * self.dx
+
+	def EV(self):
+
+		T = range(int(self.nt))
+		arr = self.arr
+		EV = np.zeros((self.nt,), dtype = self.dtype)
+
+		x2 = .5 * (self.x**2)
+
+		for t in T:
+			EV[t] = conj(arr[t]).dot( x2 * arr[t])
+
+		return real(EV) * self.dx
+
+	def observables(self):
+
+		EV = self.EV()
+		EP = self.EP()
+		H = EV + ((EP**2)/(2*self.m)) 
+		EX = self.EX()
+
+		return EX,EP,EV,H		
 
 
+class harmonic_oscillator(simulation):
+
+	def __init__(self, xi, ti, m = 1, hbar = 1, 
+					 xf = None, nx = None, dx = None,
+					 tf = None, nt = None, dt = None,
+					 dtype = np.complex128):
+
+		simulation.__init__(self, xi, ti, m , hbar, xf, nx, dx,
+					 tf, nt, dt, dtype)
 
 
+		self.k = self.propagator()
 
+	def propagator(self):
+		"""
+		generate infinitesimal the propagator for the harmonic
+		oscillator potential with omega = 1
 
+		This wouldn't be too hard to parallelize in native python,
+		but otherwise the usual tricks for speeding up numerical
+		python don't really work well with this function. It is
+		however a very good candidate for cython.
+		"""
+		h, m = self.hbar, self.m
+		dt,dx = self.dt,self.dx
+		nx,nt = self.nx, self.nt
+		
+		A = np.sqrt(i*2*np.pi*h*dt/m)
 
+		k = np.zeros(shape = (nx,nx), dtype = self.dtype )
 
+		x = self.x
 
+		_h = 1./h
+		_A = 1./A
+		dx_A = dx*_A
+		_dt = 1./dt
 
+		c1 = (i * _h) * .5 * m * _dt
+		c2 = (i * _h) * .5 * dt * .25
+
+		l = len(x)
+
+		for ii in range(l):
+			for jj in range(ii,l):
+				s =  c1*(x[jj]-x[ii])**2 - c2*(x[jj]+x[ii])**2 
+				s = dx_A * np.exp(s)
+				k[ii,jj] = s
+				k[jj,ii] = s
+
+		return k
+
+	def analytic_propagator(self,ti,tf):
+
+		m = self.m
+		h = self.hbar
+		T = tf-ti
+		x = self.x
+		l = len(x)
+
+		a = np.sqrt(m/(2*np.pi*i*h*np.sin(T)))
+		b = i*m/(2*h*np.sin(T))
+
+		k = np.zeros(shape = (nx,nx), dtype = self.dtype )
+
+		for ii in range(l):
+			for jj in range(ii,l):
+				s =  a*np.exp(b*( np.cos(T)*(x[ii]**2 +x[jj]**2) -2*x[jj]x[ii]))
+				s =  np.exp(s)
+				k[ii,jj] = s
+				k[jj,ii] = s
+
+		return k

@@ -1,0 +1,136 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{braket}
+\usepackage{bbold}
+\usepackage{mathrsfs}
+
+\author{Alex Zahn}
+\title{Phys 242 HW1}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Some analytic results}
+
+\subsubsection*{Recovering the free particle Schrodinger equation}
+
+We're first asked to show
+
+\[ i\hbar\frac{\partial K(b,a)}{\partial t_b} = -\frac{\hbar^2}{2m}\frac{\partial^2 K(b,a)}{\partial {x_b}^2}
+\]
+
+\noindent given that the form of \(K\) for a free particle is
+
+\[ K(b,a) = \sqrt{\frac{m}{2\pi i \hbar(t_b -t_a)}}\mathrm{exp}\left(\frac{im(x_b-x_a)^2}{2\hbar(t_b-t_a)}\right)
+\]
+
+This can be done by direct computation:
+
+\begin{align*}
+i\hbar\frac{\partial K(b,a)}{\partial t_b} &= \frac{m(i\hbar(t_a-t_b)+m(x_b-x_a)^2)}{2\hbar(t_b-t_a)^3\sqrt{\frac{-2\pi m}{h(t_a-t_b)}}} \\
+&=  -\frac{\hbar^2}{2m}\frac{\partial^2 K(b,a)}{\partial {x_b}^2}
+\end{align*}
+
+Next, we can use this to recover the free particle Schrodinger equation. Recall
+
+\[ \psi(x,t) = \int\limits_{-\infty}^{\infty}\mathrm{dx'}K(x,t;x',t')\psi(x',t')
+\]
+
+Differentiating with respect to \(x\) or \(t\) commutes with the integral over \(x'\) so that
+
+\begin{align*}
+i\hbar\frac{\partial}{\partial t}\psi(x,t) &= \int\limits_{-\infty}^{\infty}\mathrm{dx'}i\hbar\frac{\partial}{\partial t}K(x,t;x',t')\psi(x',t') \\[6pt]
+%
+-\frac{h}{2m}\frac{\partial^2}{\partial x^2}\psi(x,t) &= \int\limits_{-\infty}^{\infty}\mathrm{dx'}\left(-\frac{h}{2m}\frac{\partial^2}{\partial x^2}K(x,t;x',t')\right)\psi(x',t')
+\end{align*}
+
+Having shown previously that
+
+\[ -\frac{h}{2m}\frac{\partial^2}{\partial x^2}K(x,t;x',t') = i\hbar\frac{\partial}{\partial t}K(x,t;x',t')
+\]
+
+the above operations on \(\psi\) are equivalent and we obtain the free particle schrodinger equation.
+
+\subsubsection*{Analytic form of the harmonic oscillator propagator}
+
+Let's first consider the integral
+
+\newcommand{\intxf}[1]{\int\limits_{-\infty}^{\infty}\mathrm{dx_#1}}
+\newcommand{\expp}[1]{\exp\left(#1\right)}
+
+\[I_1 = \intxf{1}\left(\frac{m}{2\pi i \hbar \epsilon}\right)^{\frac{2}{2}}\expp{\frac{im}{2\hbar\epsilon}\left((x_2-x_1)^2+(x_1-x_0)^2\right)-\frac{\omega}{2}(x_0^2+x_1^2+x_2^2)}
+\]
+
+We can expand the exponent to
+
+\begin{align*}
+\frac{i m x_0^2}{2 \epsilon  \hbar }-\frac{i m x_1
+   x_0}{\epsilon  \hbar }+\frac{i m x_1^2}{\epsilon  \hbar
+   }+\frac{i m x_2^2}{2 \epsilon  \hbar }-\frac{i m x_1
+   x_2}{\epsilon  \hbar }-\frac{1}{2} x_0^2 \omega
+   -\frac{x_1^2 \omega }{2}-\frac{x_3^2 \omega }{2}
+\end{align*}
+
+Collecting terms in powers of \(x_1\) this becomes
+
+\begin{align*}
+x_1^2 \left(\frac{i m}{\epsilon  \hbar }-\frac{\omega
+   }{2}\right)+x_1 \left(-\frac{i m
+   x_0}{\epsilon  \hbar }-\frac{i m x_2}{\epsilon  \hbar
+   }\right)-\frac{1}{2} x_0^2 \omega -\frac{x_2^2 \omega
+   }{2}+\frac{i m x_0^2}{2 \epsilon  \hbar }+\frac{i
+   m x_2^2}{2 \epsilon  \hbar }\\[6pt]
+%
+\equiv -a_1x_1^2+b_1x_1+c_1
+\end{align*}
+
+Notice that we always have \(\mathrm{Re}(a_1) < 0\). \(I_1\) is therefore just a gaussian integral:
+
+\begin{align*}
+I_1 = \frac{m}{2\pi i \hbar \epsilon}\sqrt{\frac{\pi}{a}}e^{\frac{b_1^2}{4a_1}+c_1}
+\end{align*}
+
+Now consider
+
+\begin{align*}
+I_2 = \intxf{2}\sqrt{\frac{m}{2\pi i \hbar \epsilon}}\expp{\frac{im}{2\hbar\epsilon}(x_3-x_2)^2-\frac{\omega}{2}x_3^2}  I_1
+\end{align*}
+
+Clearly \(I_2\) can be put into the same form as \(I_1\), and we can know without doing any calculation at all that \(\mathrm{Re}(a_2)<0\) or else \(I_2\) (and our propagator) will diverge. Then \(I_2\) can be computed exactly as \(I_1\). We can repeat this reasoning for all \(I_N\), and presumably pick out a pattern in the form of \(I_N\) and next show inductively that \(I_N\) converges to the form given in the lecture notes.
+
+It's also obvious that this procedure is going to painfully messy, and probably beyond my algebraic abilities.
+
+So I'm going to abandon this problem and invoke ambiguity of the problem statement (see page 7 of lecture 4) to say that we're actually meant to solve the much more tractable problem of finding the classical action.
+
+\subsubsection*{\(S_{cl}\) for the harmonic oscillator}
+
+The classical system is described by
+
+\[L = \frac{1}{2}m\dot{x}^2 - \frac{1}{2}m\omega^2 x^2
+\]
+
+which yields an Euler-Lagrange equation of motion given by
+
+\[-m\omega^2 x_{cl} - m\ddot{x}_{cl} = 0
+\]
+
+with boundary conditions \(x_{cl}(t_i) = x_i\) and \(x_{cl}(t_f) = x_f\). The general solution is a linear combination of sinusoids of angular frequency \(\omega\). The particular solution that satisfies our boundary conditions is
+
+\[x_{cl} = \frac{\sin\omega(t_f-t)}{\sin\omega(t_f-t_i)}x_i + \frac{\sin\omega(t-t_i)}{\sin\omega(t_f-t_i)}x_f
+\]
+
+where the sign of the \( t_f -t \) and \( t - t_i \) terms has been chosen so that the angular frequency of the sines remains \(+\omega\).
+
+The classical action is straightforward to compute from here:
+
+\begin{align*}
+S_{cl} = \int\limits_{t_i}^{t_f}\mathrm{dt}L(x_{cl},\dot{x}_{cl}) = \frac{1}{2}m\omega\frac{(x_i+x_f)^2\cos\omega(t_f-t_i) - 2x_ix_f}{\sin\omega(t_f-t_i)}
+\end{align*}
+
+\section{Harmonic Oscillator Simulation}
+
+
+ 
+\end{document}
+
