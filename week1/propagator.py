@@ -108,7 +108,7 @@ class simulation(object):
 
 	def run(self):
 
-		k = np.transpose(self.k)
+		k = self.dx * self.k
 
 		for i in range(0,len(self.arr)-1):
 
@@ -116,14 +116,14 @@ class simulation(object):
 
 	def run_renormalize(self):
 
-		k = np.transpose(self.k)
+		k = self.dx * self.k
 
 		arr = self.arr
 		
 		for i in range(0,len(self.arr)-1):
 
 			arr[i+1] = k.dot(self.arr[i])
-			arr[i+1] *= (1./norm(self.arr[i+1],self.dx))
+			arr[i+1] /= norm(self.arr[i+1],self.dx)
 
 
 	def set_initial_state(self, psi0):
@@ -181,29 +181,42 @@ class simulation(object):
 		for t in T:
 			EP[t] = conj(arr[t][:-1]).dot(np.diff(arr[t]))
 
-		return real( (-i * self.hbar / (self.dt)) * EP * self.dx
+		# The discrete derivative operation should contribute
+		# a factor of 1/dx, which would have been cancelled
+		# in the riemann summation, so the factor is just dropped
+		# entirely
 
-	def EV(self):
+		return real( (-i * self.hbar / (1) ) * EP) 
+
+	def EK(self):
 
 		T = range(int(self.nt))
 		arr = self.arr
-		EV = np.zeros((self.nt,), dtype = self.dtype)
 
-		x2 = .5 * (self.x**2)
+		EK = np.zeros((self.nt,), dtype = self.dtype)
 
 		for t in T:
-			EV[t] = conj(arr[t]).dot( x2 * arr[t])
+			EK[t] = conj(arr[t][:-2]).dot(np.diff(np.diff(arr[t])))
 
-		return real(EV) * self.dx
+		return real( (-1 * self.hbar**2 / (2*self.m*self.dx) ) * EK) 
+
 
 	def observables(self):
 
-		EV = self.EV()
-		EP = self.EP()
-		H = EV + ((EP**2)/(2*self.m)) 
 		EX = self.EX()
+		EP = self.EP()
+		EK = self.EK()
+		EV,H = None,None
 
-		return EX,EP,EV,H		
+		try:
+			# the expectation value of potential energy
+			# has to be implemented by a subclass
+			EV = self.EV()
+			H = EV + EK
+		except:
+			pass
+
+		return EX,EP,EV,EK,H		
 
 
 class harmonic_oscillator(simulation):
@@ -234,37 +247,49 @@ class harmonic_oscillator(simulation):
 		nx,nt = self.nx, self.nt
 		
 		A = np.sqrt(i*2*np.pi*h*dt/m)
-
+		_A = 1./A
 		k = np.zeros(shape = (nx,nx), dtype = self.dtype )
 
 		x = self.x
+ 
 
-		_h = 1./h
-		_A = 1./A
-		dx_A = dx*_A
-		_dt = 1./dt
-
-		c1 = (i * _h) * .5 * m * _dt
-		c2 = (i * _h) * .5 * dt * .25
+		c1 = (i / h) * .5 * m / dt
+		c2 = (i / h) * .5 * dt * .25
 
 		l = len(x)
 
 		for ii in range(l):
 			for jj in range(ii,l):
 				s =  c1*(x[jj]-x[ii])**2 - c2*(x[jj]+x[ii])**2 
-				s = dx_A * np.exp(s)
+				s = _A*np.exp(s)
 				k[ii,jj] = s
 				k[jj,ii] = s
 
 		return k
 
-	def analytic_propagator(self,ti,tf):
+	def EV(self):
 
+		T = range(int(self.nt))
+		arr = self.arr
+		EV = np.zeros((self.nt,), dtype = self.dtype)
+
+		x2 = .5 * (self.x**2)
+
+		for t in T:
+			EV[t] = conj(arr[t]).dot( x2 * arr[t])
+			#EV[t] = (np.abs(arr[t])**2).dot(x2)
+
+		return real(EV) * self.dx
+
+
+	def analytic_propagator(self,T):
+
+		#T = self.dtype(T)
 		m = self.m
 		h = self.hbar
-		T = tf-ti
 		x = self.x
 		l = len(x)
+		nx = self.nx
 
 		a = np.sqrt(m/(2*np.pi*i*h*np.sin(T)))
 		b = i*m/(2*h*np.sin(T))
@@ -273,8 +298,7 @@ class harmonic_oscillator(simulation):
 
 		for ii in range(l):
 			for jj in range(ii,l):
-				s =  a*np.exp(b*( np.cos(T)*(x[ii]**2 +x[jj]**2) -2*x[jj]x[ii]))
-				s =  np.exp(s)
+				s =  a*np.exp(b*( np.cos(T)*(x[ii]**2 +x[jj]**2) -2*x[jj]*x[ii]))
 				k[ii,jj] = s
 				k[jj,ii] = s
 
