@@ -3,6 +3,7 @@
 \usepackage{braket}
 \usepackage{bbold}
 \usepackage{mathrsfs}
+\usepackage{graphicx}
 
 \author{Alex Zahn}
 \title{Phys 242 HW1}
@@ -130,7 +131,37 @@ S_{cl} = \int\limits_{t_i}^{t_f}\mathrm{dt}L(x_{cl},\dot{x}_{cl}) = \frac{1}{2}m
 
 \section{Harmonic Oscillator Simulation}
 
+We compute the discrete single timestep propagator in \texttt{propagor.py}'s \newline \texttt{harmonic\_oscillator.propagator()} method.
 
+\texttt{propagator.py} provides two options for evolving a system once a propagator has been computed. \texttt{simulation.run()} will repeatedly apply the propagator to an initial wavefunction, storing the result after every iteration. Notice that this is analytically equivalent to taking \(\psi(x,t) = \Delta x^{N-1}K_{\Delta T}^{N-1}\) where \(t = N\Delta t\).
+
+\texttt{simulation.run\_renormalize()} is equivalent except that it normalizes the wavefunction after every iteration.
+
+\subsubsection*{Probability amplitude losses}
+
+Running the simulation without per-iteration normalization causes large losses in to the wavepacket normalization and amplitude, as is clear from below.
+
+\includegraphics[scale=.8]{wavefunction_timelapse.png}
+
+Normalizing after each time step seems to improve the simulation fidelity considerably:
+
+\includegraphics[scale=.8]{wavefunction_timelapse_renormalize.png}
+
+\subsubsection*{Expectation values of observables}
+
+For this section, I'll only plot observables for the renormalized run. 
+
+First, we can demonstrate conservation of expectation energy by plotting the epxectation values of the kinetic, potential, and total energy over one period of the oscillation. The simulation does seem to recover conservation of energy. The high frequency artifact is likely due to lazy use of the built in \texttt{numpy.diff} in simulating the effect of the momentum operator.
+
+\includegraphics[scale=.8]{energy_renormalize.png}
+
+Position and momentum seem to have worked well also:
+
+\includegraphics[scale=.8]{EX_EP_renormalize.png}
+
+\subsection*{Simulation fidelity}
+
+The assignment only asked us to do this qualitatively, mostly by noting visual consistency with the graphs in lecture 2. I was going to compute residuals of the wavefunction against the analytic solution, but this has not been a good week.
  
 \end{document}
 
