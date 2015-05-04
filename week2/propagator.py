@@ -136,6 +136,28 @@ class simulation(object):
 			grp.attrs['ti'] = self.ti
 			grp.attrs['tf'] = self.tf
 
+			try:
+				_e = grp.create_dataset("spectrum", data = self.e)
+				_fr = grp.create_dataset("energies", data = self.fr)
+			except:
+				pass
+
+	def restore(self,run_name,fname):
+		with h5py.File(fname,'r') as f:
+			grp = f[run_name]
+			re,im = grp['re'], grp['im']
+			self.dx = grp.attrs['dx']
+			self.dt = grp.attrs['dt']
+			self.xi = grp.attrs['xi']
+			self.xf = grp.attrs['xf']
+			self.ti = grp.attrs['ti']
+			self.tf = grp.attrs['tf']
+			try:
+				self.e = grp['spectrum']
+				self.fr = grp['energies']
+			except:
+				pass
+
 	def pmf(self):
 
 		return self.dx * np.abs(self.arr)**2
@@ -150,13 +172,16 @@ class simulation(object):
 		g = np.power(a/np.pi,.25)*np.exp( -(.5*a)*(self.x - mu)**2 )
 		return phase*g
 
-	def energy_spectrum(self, n = None):
+	def spectrum(self,depth = 4, n = None):
+
 		if n == None:
-			n = 16 * int(self.nt) 
+			n = depth * int(self.nt) 
 
 		dx = self.dx
 		last_k = self.k
 		k = self.k
+
+		print n
 
 		tr = []
 
@@ -168,10 +193,16 @@ class simulation(object):
 
 			last_k = next_k
 
+			if (i % 10) == 0:
+				print i
+
 		tr = dx * np.array(tr)
 		fr = self.hbar * self.nt * np.fft.fftfreq(n)[::-1]
 		e = np.fft.fft(tr)
 		e = np.abs(e)**2
+
+		self.fr = fr
+		self.e = e
 
 		return fr,e
 
@@ -302,7 +333,9 @@ class double_well(simulation):
 		simulation.__init__(self, xi, ti, m , hbar, xf, nx, dx,
 					 tf, nt, dt, dtype)
 
-	def propagator(self):
+	def propagator(self,b = 2):
+
+		self.b = b
 
 		h, m = self.hbar, self.m
 		dt,dx = self.dt,self.dx
@@ -314,5 +347,34 @@ class double_well(simulation):
 
 		x = self.x
 
-		c1 = (i / h) * .5 * m / dt
+		c1 = .5 * (i / h) / dt
+		c2 = .5 * b * i * dt / h
  
+
+ 		# (B/2) * (X**4 - X*X +1)
+
+ 		l = len(x)
+
+		for ii in range(l):
+			for jj in range(ii,l):
+				mid = .5 * (x[jj]+x[ii])
+				s =  c1*(x[jj]-x[ii])**2 - c2*(mid**4 - mid*mid + 1) 
+				s = _A*np.exp(s)
+				k[ii,jj] = s
+				k[jj,ii] = s
+
+		return k
+
+
+	def EV(self):
+
+		T = range(int(self.nt))
+		arr = self.arr
+		EV = np.zeros((self.nt,), dtype = self.dtype)
+
+		x2 = .5 * self.b * ( self.x**4 - (self.x**2) + 1)
+
+		for t in T:
+			EV[t] = conj(arr[t]).dot( x2 * arr[t])
+
+		return real(EV) * self.dx
